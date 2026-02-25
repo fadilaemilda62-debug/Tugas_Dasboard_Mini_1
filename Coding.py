@@ -1,0 +1,130 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyM/c1xmH53xcNVy01qQESYD",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/fadilaemilda62-debug/Tugas_Dasboard_Mini_1/blob/main/Coding.py\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "code",
+      "execution_count": null,
+      "metadata": {
+        "id": "dJzSfO5IItXV"
+      },
+      "outputs": [],
+      "source": [
+        "import streamlit as st\n",
+        "import pandas as pd\n",
+        "import matplotlib.pyplot as plt\n",
+        "\n",
+        "# =========================\n",
+        "# KONFIGURASI HALAMAN\n",
+        "# =========================\n",
+        "st.set_page_config(\n",
+        "    page_title=\"Dashboard Analisis Siswa\",\n",
+        "    layout=\"wide\"\n",
+        ")\n",
+        "\n",
+        "st.title(\"📊 Dashboard Analisis Hasil Siswa\")\n",
+        "\n",
+        "# =========================\n",
+        "# LOAD DATA\n",
+        "# =========================\n",
+        "@st.cache_data\n",
+        "def load_data():\n",
+        "    df = pd.read_excel(\"data_simulasi_50_siswa_20_soal.xlsx\")\n",
+        "    return df\n",
+        "\n",
+        "df = load_data()\n",
+        "\n",
+        "# =========================\n",
+        "# PREPROCESSING\n",
+        "# =========================\n",
+        "df[\"Total_Nilai\"] = df.sum(axis=1)\n",
+        "df[\"Rata_Rata\"] = df.mean(axis=1)\n",
+        "\n",
+        "# =========================\n",
+        "# METRIK UTAMA\n",
+        "# =========================\n",
+        "col1, col2, col3 = st.columns(3)\n",
+        "\n",
+        "col1.metric(\"Jumlah Siswa\", len(df))\n",
+        "col2.metric(\"Rata-rata Nilai\", round(df[\"Rata_Rata\"].mean(), 2))\n",
+        "col3.metric(\"Nilai Maksimum\", df[\"Total_Nilai\"].max())\n",
+        "\n",
+        "st.divider()\n",
+        "\n",
+        "# =========================\n",
+        "# RATA-RATA PER SOAL\n",
+        "# =========================\n",
+        "st.subheader(\"📘 Rata-rata Nilai Tiap Soal\")\n",
+        "\n",
+        "mean_per_soal = df.iloc[:, :20].mean()\n",
+        "\n",
+        "fig1, ax1 = plt.subplots()\n",
+        "mean_per_soal.plot(kind=\"bar\", ax=ax1)\n",
+        "ax1.set_ylabel(\"Rata-rata Skor\")\n",
+        "ax1.set_xlabel(\"Soal\")\n",
+        "\n",
+        "st.pyplot(fig1)\n",
+        "\n",
+        "# =========================\n",
+        "# DISTRIBUSI NILAI SISWA\n",
+        "# =========================\n",
+        "st.subheader(\"📈 Distribusi Total Nilai Siswa\")\n",
+        "\n",
+        "fig2, ax2 = plt.subplots()\n",
+        "ax2.hist(df[\"Total_Nilai\"], bins=10)\n",
+        "ax2.set_xlabel(\"Total Nilai\")\n",
+        "ax2.set_ylabel(\"Jumlah Siswa\")\n",
+        "\n",
+        "st.pyplot(fig2)\n",
+        "\n",
+        "# =========================\n",
+        "# NILAI PER SISWA\n",
+        "# =========================\n",
+        "st.subheader(\"👩‍🎓 Data Nilai Siswa\")\n",
+        "\n",
+        "st.dataframe(df)\n",
+        "\n",
+        "# =========================\n",
+        "# FILTER INTERAKTIF\n",
+        "# =========================\n",
+        "st.subheader(\"🔎 Filter Nilai\")\n",
+        "\n",
+        "nilai_min = st.slider(\n",
+        "    \"Pilih minimum total nilai\",\n",
+        "    int(df[\"Total_Nilai\"].min()),\n",
+        "    int(df[\"Total_Nilai\"].max()),\n",
+        "    int(df[\"Total_Nilai\"].min())\n",
+        ")\n",
+        "\n",
+        "filtered = df[df[\"Total_Nilai\"] >= nilai_min]\n",
+        "\n",
+        "st.write(f\"Jumlah siswa terfilter: {len(filtered)}\")\n",
+        "st.dataframe(filtered)"
+      ]
+    }
+  ]
+}
