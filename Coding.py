@@ -4,240 +4,244 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.linear_model import LinearRegression
+from scipy.stats import pearsonr
 
-# =====================================================
-# KONFIGURASI HALAMAN
-# =====================================================
-st.set_page_config(page_title="Dashboard Analisis Lengkap", layout="wide")
-
-st.title("📊 Dashboard Analisis Data Penelitian")
+st.set_page_config(layout="wide")
+st.title("🎓 Dashboard Analisis Instrumen Tes (Level Penelitian)")
 
 # =====================================================
 # LOAD DATA
 # =====================================================
-@st.cache_data
-def load_data():
-    df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
-    return df
+file = "data_simulasi_50_siswa_20_soal.xlsx"
+df = pd.read_excel(file)
 
-df = load_data()
-
-# preprocessing
-if "Responden" in df.columns:
-    data = df.drop(columns=["Responden"])
-else:
-    data = df.copy()
-
-data = data.select_dtypes(include=np.number)
-
-# total skor
-data["Total_Skor"] = data.sum(axis=1)
+soal_cols = [c for c in df.columns if "Soal" in c]
 
 # =====================================================
-# SIDEBAR (REGRESI)
+# FILTER INTERAKTIF
 # =====================================================
-st.sidebar.header("⚙️ Pengaturan Analisis")
+st.sidebar.header("🎛️ Filter Data")
 
-target = st.sidebar.selectbox("Variabel Target (Y)", data.columns)
-
-opsi_fitur = [c for c in data.columns if c != target]
-default_fitur = opsi_fitur[:min(3, len(opsi_fitur))]
-
-fitur = st.sidebar.multiselect(
-    "Variabel Prediktor (X)",
-    opsi_fitur,
-    default=default_fitur
-)
+if "Jenis_Kelamin" in df.columns:
+    gender = st.sidebar.multiselect(
+        "Filter Jenis Kelamin",
+        df["Jenis_Kelamin"].unique(),
+        default=df["Jenis_Kelamin"].unique()
+    )
+    df = df[df["Jenis_Kelamin"].isin(gender)]
 
 # =====================================================
-# TAB DASHBOARD
+# DATA OTOMATIS
 # =====================================================
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-    "📋 Tabel",
-    "📊 Statistik",
-    "📈 Grafik",
-    "📉 Distribusi",
-    "🥧 Diagram Lingkaran",
-    "🔥 Korelasi & Regresi",
-    "🧠 Kesimpulan"
+df["Total_Nilai"] = df[soal_cols].sum(axis=1)
+df["Rata_siswa"] = df[soal_cols].mean(axis=1)
+rata_soal = df[soal_cols].mean()
+
+# =====================================================
+# SIDEBAR MENU
+# =====================================================
+menu = st.sidebar.radio("Menu Dashboard",[
+"Data Identitas",
+"Skor & Nilai Siswa",
+"Statistik Deskriptif",
+"Analisis Butir Soal",
+"Korelasi",
+"Regresi Linear",
+"Distribusi Data",
+"Diagram Lingkaran",
+"Grafik Analisis",
+"Kesimpulan",
+"Validitas Butir",
+"Reliabilitas (Cronbach Alpha)",
+"Indeks Kesukaran",
+"Daya Pembeda"
 ])
 
 # =====================================================
-# TAB 1 — TABEL
+# DATA IDENTITAS
 # =====================================================
-with tab1:
-    st.subheader("Tabel Data")
-    st.dataframe(data, use_container_width=True)
+if menu == "Data Identitas":
+    st.dataframe(df.select_dtypes(include="object"))
 
 # =====================================================
-# TAB 2 — STATISTIK
+# SKOR SISWA
 # =====================================================
-with tab2:
-    st.subheader("Statistik Deskriptif")
-    stats = data.describe()
-    st.dataframe(stats, use_container_width=True)
+elif menu == "Skor & Nilai Siswa":
+    st.dataframe(df[["Total_Nilai","Rata_siswa"] + soal_cols])
 
-    mean_values = data.mean()
+# =====================================================
+# STATISTIK DESKRIPTIF
+# =====================================================
+elif menu == "Statistik Deskriptif":
 
-    fig, ax = plt.subplots(figsize=(12,5))
-    ax.bar(mean_values.index, mean_values.values)
-    ax.set_title("Rata-rata Variabel")
-    ax.tick_params(axis='x', rotation=90)
+    stat = df[soal_cols].agg(
+        ["mean","median","std","min","max"]
+    ).T
+
+    stat["modus"] = df[soal_cols].mode().iloc[0]
+
+    st.dataframe(stat)
+
+# =====================================================
+# ANALISIS BUTIR
+# =====================================================
+elif menu == "Analisis Butir Soal":
+
+    st.dataframe(rata_soal)
+
+    fig, ax = plt.subplots()
+    rata_soal.plot(kind="bar", ax=ax)
     st.pyplot(fig)
 
 # =====================================================
-# TAB 3 — GRAFIK
+# KORELASI
 # =====================================================
-with tab3:
+elif menu == "Korelasi":
 
-    col1, col2 = st.columns(2)
+    corr = df[soal_cols].corr()
+
+    fig, ax = plt.subplots(figsize=(10,6))
+    sns.heatmap(corr, cmap="coolwarm", ax=ax)
+    st.pyplot(fig)
+
+# =====================================================
+# REGRESI
+# =====================================================
+elif menu == "Regresi Linear":
+
+    X = df[["Rata_siswa"]]
+    y = df["Total_Nilai"]
+
+    model = LinearRegression().fit(X,y)
+
+    pred = model.predict(X)
+
+    fig, ax = plt.subplots()
+    ax.scatter(X,y)
+    ax.plot(X,pred)
+    st.pyplot(fig)
+
+    st.write("Koefisien:",model.coef_[0])
+    st.write("R²:",model.score(X,y))
+
+# =====================================================
+# DISTRIBUSI
+# =====================================================
+elif menu == "Distribusi Data":
+
+    fig, ax = plt.subplots()
+    ax.hist(df["Total_Nilai"], bins=10)
+    st.pyplot(fig)
+
+# =====================================================
+# PIE CHART
+# =====================================================
+elif menu == "Diagram Lingkaran":
+
+    kategori = pd.cut(df["Total_Nilai"],3,
+                      labels=["Rendah","Sedang","Tinggi"])
+
+    fig, ax = plt.subplots()
+    kategori.value_counts().plot.pie(autopct="%1.1f%%", ax=ax)
+    st.pyplot(fig)
+
+# =====================================================
+# GRAFIK
+# =====================================================
+elif menu == "Grafik Analisis":
+
+    col1,col2 = st.columns(2)
 
     with col1:
-        x_axis = st.selectbox("Sumbu X", data.columns)
+        fig1, ax1 = plt.subplots()
+        ax1.plot(df["Total_Nilai"])
+        st.pyplot(fig1)
 
     with col2:
-        y_axis = st.selectbox("Sumbu Y", data.columns, index=1)
-
-    fig2, ax2 = plt.subplots()
-    ax2.scatter(data[x_axis], data[y_axis])
-    ax2.set_xlabel(x_axis)
-    ax2.set_ylabel(y_axis)
-
-    st.pyplot(fig2)
-
-    st.line_chart(data[[x_axis, y_axis]])
+        fig2, ax2 = plt.subplots()
+        rata_soal.plot(kind="bar", ax=ax2)
+        st.pyplot(fig2)
 
 # =====================================================
-# TAB 4 — DISTRIBUSI
+# VALIDITAS BUTIR
 # =====================================================
-with tab4:
-    st.subheader("Distribusi Total Skor")
+elif menu == "Validitas Butir":
 
-    fig3, ax3 = plt.subplots()
-    ax3.hist(data["Total_Skor"], bins=10)
-    ax3.set_xlabel("Total Skor")
-    ax3.set_ylabel("Frekuensi")
+    hasil = []
 
-    st.pyplot(fig3)
+    total = df["Total_Nilai"]
+
+    for col in soal_cols:
+        r,_ = pearsonr(df[col], total)
+        hasil.append(r)
+
+    validitas = pd.DataFrame({
+        "Soal":soal_cols,
+        "r_hitung":hasil
+    })
+
+    st.dataframe(validitas)
 
 # =====================================================
-# TAB 5 — DIAGRAM LINGKARAN
+# CRONBACH ALPHA
 # =====================================================
-with tab5:
+elif menu == "Reliabilitas (Cronbach Alpha)":
 
-    st.subheader("Diagram Lingkaran Kategori Skor")
+    k = len(soal_cols)
+    var_item = df[soal_cols].var(axis=0, ddof=1)
+    var_total = df[soal_cols].sum(axis=1).var(ddof=1)
+
+    alpha = (k/(k-1))*(1-(var_item.sum()/var_total))
+
+    st.success(f"Cronbach Alpha = {alpha:.3f}")
+
+# =====================================================
+# INDEKS KESUKARAN
+# =====================================================
+elif menu == "Indeks Kesukaran":
+
+    indeks = df[soal_cols].mean()
 
     kategori = pd.cut(
-        data["Total_Skor"],
-        bins=3,
-        labels=["Rendah", "Sedang", "Tinggi"]
+        indeks,
+        bins=[0,0.3,0.7,1],
+        labels=["Sulit","Sedang","Mudah"]
     )
 
-    kategori_count = kategori.value_counts()
+    hasil = pd.DataFrame({
+        "Indeks":indeks,
+        "Kategori":kategori
+    })
 
-    fig4, ax4 = plt.subplots()
-    ax4.pie(
-        kategori_count,
-        labels=kategori_count.index,
-        autopct='%1.1f%%',
-        startangle=90
-    )
-
-    st.pyplot(fig4)
+    st.dataframe(hasil)
 
 # =====================================================
-# TAB 6 — KORELASI & REGRESI
+# DAYA PEMBEDA
 # =====================================================
-with tab6:
+elif menu == "Daya Pembeda":
 
-    st.subheader("Heatmap Korelasi")
+    df_sorted = df.sort_values("Total_Nilai")
 
-    corr = data.corr()
+    n = int(len(df)*0.27)
 
-    fig5, ax5 = plt.subplots(figsize=(10,8))
-    sns.heatmap(corr, cmap="coolwarm", ax=ax5)
-    st.pyplot(fig5)
+    bawah = df_sorted.head(n)
+    atas = df_sorted.tail(n)
 
-    mean_corr = corr.abs().mean().mean()
-    st.info(f"Rata-rata kekuatan korelasi: {round(mean_corr,3)}")
+    dp = atas[soal_cols].mean() - bawah[soal_cols].mean()
 
-    # REGRESI
-    st.subheader("Regresi Linear")
+    st.dataframe(dp)
 
-    if len(fitur) > 0:
+# =====================================================
+# KESIMPULAN
+# =====================================================
+elif menu == "Kesimpulan":
 
-        X = data[fitur]
-        y = data[target]
+    mean_total = df["Total_Nilai"].mean()
+    max_total = df["Total_Nilai"].max()
 
-        model = LinearRegression()
-        model.fit(X, y)
-
-        prediksi = model.predict(X)
-
-        coef_df = pd.DataFrame({
-            "Variabel": fitur,
-            "Koefisien": model.coef_
-        })
-
-        st.dataframe(coef_df, use_container_width=True)
-
-        r2 = model.score(X, y)
-        st.success(f"R² Score = {round(r2,4)}")
-
-        fig6, ax6 = plt.subplots()
-        ax6.scatter(y, prediksi)
-        ax6.set_xlabel("Aktual")
-        ax6.set_ylabel("Prediksi")
-
-        st.pyplot(fig6)
-
+    if mean_total > 0.7*max_total:
+        st.success("Kemampuan siswa tinggi.")
+    elif mean_total > 0.4*max_total:
+        st.warning("Kemampuan siswa sedang.")
     else:
-        st.warning("Pilih variabel prediktor.")
-
-# =====================================================
-# TAB 7 — KESIMPULAN OTOMATIS
-# =====================================================
-with tab7:
-
-    st.subheader("Kesimpulan Analisis")
-
-    mean_total = data["Total_Skor"].mean()
-
-    if mean_total < data["Total_Skor"].quantile(0.33):
-        kategori_text = "rendah"
-    elif mean_total < data["Total_Skor"].quantile(0.66):
-        kategori_text = "sedang"
-    else:
-        kategori_text = "tinggi"
-
-    if mean_corr < 0.3:
-        korelasi_text = "lemah"
-    elif mean_corr < 0.6:
-        korelasi_text = "sedang"
-    else:
-        korelasi_text = "kuat"
-
-    if len(fitur) > 0:
-        if r2 < 0.3:
-            regresi_text = "rendah"
-        elif r2 < 0.7:
-            regresi_text = "cukup baik"
-        else:
-            regresi_text = "sangat baik"
-    else:
-        regresi_text = "belum dianalisis"
-
-    kesimpulan = f"""
-    • Rata-rata kemampuan siswa berada pada kategori **{kategori_text}**.  
-    • Hubungan antar variabel menunjukkan korelasi **{korelasi_text}**.  
-    • Model regresi memiliki kemampuan prediksi **{regresi_text}**.  
-
-    Secara umum data menunjukkan adanya hubungan antar variabel yang dapat
-    digunakan untuk menjelaskan variasi pada variabel target penelitian.
-    """
-
-    st.success(kesimpulan)
-
-# =====================================================
-st.markdown("---")
-st.caption("Dashboard Analisis Lengkap • Statistik • Korelasi • Regresi")
+        st.error("Kemampuan siswa rendah.")
