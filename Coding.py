@@ -7,7 +7,12 @@ from sklearn.linear_model import LinearRegression
 from scipy.stats import pearsonr
 
 st.set_page_config(layout="wide")
-st.title("🎓 Dashboard Analisis Instrumen Tes (Level Penelitian)")
+
+# =====================================================
+# HEADER
+# =====================================================
+st.title("📊 Mini Dashboard Analisis Data Siswa")
+st.markdown("---")
 
 # =====================================================
 # LOAD DATA
@@ -18,19 +23,6 @@ df = pd.read_excel(file)
 soal_cols = [c for c in df.columns if "Soal" in c]
 
 # =====================================================
-# FILTER INTERAKTIF
-# =====================================================
-st.sidebar.header("🎛️ Filter Data")
-
-if "Jenis_Kelamin" in df.columns:
-    gender = st.sidebar.multiselect(
-        "Filter Jenis Kelamin",
-        df["Jenis_Kelamin"].unique(),
-        default=df["Jenis_Kelamin"].unique()
-    )
-    df = df[df["Jenis_Kelamin"].isin(gender)]
-
-# =====================================================
 # DATA OTOMATIS
 # =====================================================
 df["Total_Nilai"] = df[soal_cols].sum(axis=1)
@@ -38,55 +30,53 @@ df["Rata_siswa"] = df[soal_cols].mean(axis=1)
 rata_soal = df[soal_cols].mean()
 
 # =====================================================
-# SIDEBAR MENU
+# TAB MENU (SEMUA DI BAWAH JUDUL)
 # =====================================================
-menu = st.sidebar.radio("Menu Dashboard",[
-"Data Identitas",
-"Skor & Nilai Siswa",
-"Statistik Deskriptif",
-"Analisis Butir Soal",
-"Korelasi",
-"Regresi Linear",
-"Distribusi Data",
-"Diagram Lingkaran",
-"Grafik Analisis",
-"Kesimpulan",
-"Validitas Butir",
-"Reliabilitas (Cronbach Alpha)",
-"Indeks Kesukaran",
-"Daya Pembeda"
+tabs = st.tabs([
+"📋 Data Identitas",
+"📊 Skor & Nilai Siswa",
+"📈 Statistik Deskriptif",
+"🧪 Analisis Butir Soal",
+"🔗 Korelasi",
+"📉 Regresi Linear",
+"📊 Distribusi Data",
+"🥧 Diagram Lingkaran",
+"📊 Grafik Analisis",
+"🧠 Kesimpulan",
+"🎓 Validitas Butir",
+"🧮 Reliabilitas (Cronbach Alpha)",
+"📏 Indeks Kesukaran",
+"⚖️ Daya Pembeda"
 ])
 
 # =====================================================
-# DATA IDENTITAS
+# 1 DATA IDENTITAS
 # =====================================================
-if menu == "Data Identitas":
+with tabs[0]:
+    st.subheader("Data Identitas")
     st.dataframe(df.select_dtypes(include="object"))
 
 # =====================================================
-# SKOR SISWA
+# 2 SKOR SISWA
 # =====================================================
-elif menu == "Skor & Nilai Siswa":
-    st.dataframe(df[["Total_Nilai","Rata_siswa"] + soal_cols])
+with tabs[1]:
+    st.subheader("Skor & Nilai Siswa")
+    st.dataframe(df[soal_cols + ["Total_Nilai","Rata_siswa"]])
 
 # =====================================================
-# STATISTIK DESKRIPTIF
+# 3 STATISTIK
 # =====================================================
-elif menu == "Statistik Deskriptif":
-
+with tabs[2]:
     stat = df[soal_cols].agg(
         ["mean","median","std","min","max"]
     ).T
-
     stat["modus"] = df[soal_cols].mode().iloc[0]
-
     st.dataframe(stat)
 
 # =====================================================
-# ANALISIS BUTIR
+# 4 ANALISIS BUTIR
 # =====================================================
-elif menu == "Analisis Butir Soal":
-
+with tabs[3]:
     st.dataframe(rata_soal)
 
     fig, ax = plt.subplots()
@@ -94,26 +84,22 @@ elif menu == "Analisis Butir Soal":
     st.pyplot(fig)
 
 # =====================================================
-# KORELASI
+# 5 KORELASI
 # =====================================================
-elif menu == "Korelasi":
-
+with tabs[4]:
     corr = df[soal_cols].corr()
-
     fig, ax = plt.subplots(figsize=(10,6))
     sns.heatmap(corr, cmap="coolwarm", ax=ax)
     st.pyplot(fig)
 
 # =====================================================
-# REGRESI
+# 6 REGRESI
 # =====================================================
-elif menu == "Regresi Linear":
-
+with tabs[5]:
     X = df[["Rata_siswa"]]
     y = df["Total_Nilai"]
 
     model = LinearRegression().fit(X,y)
-
     pred = model.predict(X)
 
     fig, ax = plt.subplots()
@@ -121,23 +107,21 @@ elif menu == "Regresi Linear":
     ax.plot(X,pred)
     st.pyplot(fig)
 
-    st.write("Koefisien:",model.coef_[0])
-    st.write("R²:",model.score(X,y))
+    st.write("Koefisien:", model.coef_[0])
+    st.write("R²:", model.score(X,y))
 
 # =====================================================
-# DISTRIBUSI
+# 7 DISTRIBUSI
 # =====================================================
-elif menu == "Distribusi Data":
-
+with tabs[6]:
     fig, ax = plt.subplots()
     ax.hist(df["Total_Nilai"], bins=10)
     st.pyplot(fig)
 
 # =====================================================
-# PIE CHART
+# 8 PIE CHART
 # =====================================================
-elif menu == "Diagram Lingkaran":
-
+with tabs[7]:
     kategori = pd.cut(df["Total_Nilai"],3,
                       labels=["Rendah","Sedang","Tinggi"])
 
@@ -146,30 +130,44 @@ elif menu == "Diagram Lingkaran":
     st.pyplot(fig)
 
 # =====================================================
-# GRAFIK
+# 9 GRAFIK
 # =====================================================
-elif menu == "Grafik Analisis":
+with tabs[8]:
 
     col1,col2 = st.columns(2)
 
     with col1:
         fig1, ax1 = plt.subplots()
-        ax1.plot(df["Total_Nilai"])
+        rata_soal.plot(kind="bar", ax=ax1)
         st.pyplot(fig1)
 
     with col2:
         fig2, ax2 = plt.subplots()
-        rata_soal.plot(kind="bar", ax=ax2)
+        ax2.plot(df["Total_Nilai"])
         st.pyplot(fig2)
 
 # =====================================================
-# VALIDITAS BUTIR
+# 10 KESIMPULAN
 # =====================================================
-elif menu == "Validitas Butir":
+with tabs[9]:
 
-    hasil = []
+    mean_total = df["Total_Nilai"].mean()
+    max_total = df["Total_Nilai"].max()
+
+    if mean_total > 0.7*max_total:
+        st.success("Performa siswa tinggi")
+    elif mean_total > 0.4*max_total:
+        st.warning("Performa siswa sedang")
+    else:
+        st.error("Performa siswa rendah")
+
+# =====================================================
+# 11 VALIDITAS
+# =====================================================
+with tabs[10]:
 
     total = df["Total_Nilai"]
+    hasil = []
 
     for col in soal_cols:
         r,_ = pearsonr(df[col], total)
@@ -183,9 +181,9 @@ elif menu == "Validitas Butir":
     st.dataframe(validitas)
 
 # =====================================================
-# CRONBACH ALPHA
+# 12 RELIABILITAS
 # =====================================================
-elif menu == "Reliabilitas (Cronbach Alpha)":
+with tabs[11]:
 
     k = len(soal_cols)
     var_item = df[soal_cols].var(axis=0, ddof=1)
@@ -196,52 +194,23 @@ elif menu == "Reliabilitas (Cronbach Alpha)":
     st.success(f"Cronbach Alpha = {alpha:.3f}")
 
 # =====================================================
-# INDEKS KESUKARAN
+# 13 INDEKS KESUKARAN
 # =====================================================
-elif menu == "Indeks Kesukaran":
+with tabs[12]:
 
     indeks = df[soal_cols].mean()
-
-    kategori = pd.cut(
-        indeks,
-        bins=[0,0.3,0.7,1],
-        labels=["Sulit","Sedang","Mudah"]
-    )
-
-    hasil = pd.DataFrame({
-        "Indeks":indeks,
-        "Kategori":kategori
-    })
-
-    st.dataframe(hasil)
+    st.dataframe(indeks)
 
 # =====================================================
-# DAYA PEMBEDA
+# 14 DAYA PEMBEDA
 # =====================================================
-elif menu == "Daya Pembeda":
+with tabs[13]:
 
     df_sorted = df.sort_values("Total_Nilai")
-
     n = int(len(df)*0.27)
 
     bawah = df_sorted.head(n)
     atas = df_sorted.tail(n)
 
     dp = atas[soal_cols].mean() - bawah[soal_cols].mean()
-
     st.dataframe(dp)
-
-# =====================================================
-# KESIMPULAN
-# =====================================================
-elif menu == "Kesimpulan":
-
-    mean_total = df["Total_Nilai"].mean()
-    max_total = df["Total_Nilai"].max()
-
-    if mean_total > 0.7*max_total:
-        st.success("Kemampuan siswa tinggi.")
-    elif mean_total > 0.4*max_total:
-        st.warning("Kemampuan siswa sedang.")
-    else:
-        st.error("Kemampuan siswa rendah.")
