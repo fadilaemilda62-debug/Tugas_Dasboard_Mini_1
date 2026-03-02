@@ -1,80 +1,128 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# ===============================
-# KONFIGURASI HALAMAN
-# ===============================
-st.set_page_config(
-    page_title="Dashboard Analisis Siswa",
-    layout="wide"
-)
+# ======================================
+# KONFIGURASI DASHBOARD
+# ======================================
+st.set_page_config(page_title="Dashboard Mini", layout="wide")
 
-st.title("📊 Dashboard Analisis Data Siswa")
+st.title("📊 Dashboard Analisis Data")
 
-# ===============================
+# ======================================
 # LOAD DATA
-# ===============================
-file_path = "data_simulasi_50_siswa_20_soal.xlsx"
-df = pd.read_excel(file_path)
+# ======================================
+@st.cache_data
+def load_data():
+    df = pd.read_excel("data_simulasi_50_siswa_20_soal.xlsx")
+    return df
 
-# Ambil kolom soal saja
-kolom_soal = df.columns[1:]
+df = load_data()
 
-# ===============================
-# HITUNG STATISTIK
-# ===============================
-df["Rata-rata Siswa"] = df[kolom_soal].mean(axis=1)
-rata_soal = df[kolom_soal].mean()
+# hapus kolom responden jika ada
+if "Responden" in df.columns:
+    data = df.drop(columns=["Responden"])
+else:
+    data = df.copy()
 
-# ===============================
-# METRICS
-# ===============================
-st.subheader("📌 Statistik Umum")
+# ambil hanya numerik
+data = data.select_dtypes(include=np.number)
 
-col1, col2, col3 = st.columns(3)
+# tambah total skor
+data["Total_Skor"] = data.sum(axis=1)
 
-col1.metric("Jumlah Responden", len(df))
-col2.metric("Jumlah Soal", len(kolom_soal))
-col3.metric("Rata-rata Keseluruhan", round(df["Rata-rata Siswa"].mean(), 2))
+# ======================================
+# MENU TAB
+# ======================================
+tab1, tab2, tab3, tab4 = st.tabs([
+    "📋 Tabel",
+    "📊 Diagram",
+    "📈 Grafik",
+    "📉 Distribusi"
+])
 
-# ===============================
-# GRAFIK RATA-RATA PER SOAL
-# ===============================
-st.subheader("📈 Rata-rata Nilai Tiap Soal")
+# ======================================
+# TAB 1 — TABEL
+# ======================================
+with tab1:
 
-fig1, ax1 = plt.subplots()
-ax1.bar(rata_soal.index, rata_soal.values)
-plt.xticks(rotation=90)
-ax1.set_ylabel("Nilai Rata-rata")
-st.pyplot(fig1)
+    st.subheader("Tabel Data")
+    st.dataframe(data, use_container_width=True)
 
-# ===============================
-# DISTRIBUSI NILAI SISWA
-# ===============================
-st.subheader("📊 Distribusi Rata-rata Nilai Siswa")
+    st.subheader("Statistik Deskriptif")
+    st.dataframe(data.describe(), use_container_width=True)
 
-fig2, ax2 = plt.subplots()
-ax2.hist(df["Rata-rata Siswa"], bins=10)
-ax2.set_xlabel("Rata-rata Nilai")
-ax2.set_ylabel("Jumlah Siswa")
-st.pyplot(fig2)
+# ======================================
+# TAB 2 — DIAGRAM (BAR CHART)
+# ======================================
+with tab2:
 
-# ===============================
-# TABEL DATA
-# ===============================
-st.subheader("📋 Data Lengkap")
+    st.subheader("Diagram Rata-rata Tiap Soal")
 
-st.dataframe(df, use_container_width=True)
+    mean_values = data.mean()
 
-# ===============================
-# FILTER SISWA
-# ===============================
-st.subheader("🔎 Filter Berdasarkan Responden")
+    fig, ax = plt.subplots(figsize=(12,5))
+    ax.bar(mean_values.index, mean_values.values)
+    ax.set_xlabel("Variabel")
+    ax.set_ylabel("Rata-rata")
+    ax.tick_params(axis='x', rotation=90)
 
-nama = st.selectbox("Pilih Responden", df["Responden"])
+    st.pyplot(fig)
 
-data_siswa = df[df["Responden"] == nama]
+# ======================================
+# TAB 3 — GRAFIK
+# ======================================
+with tab3:
 
-st.write("Detail Nilai:")
-st.dataframe(data_siswa)
+    st.subheader("Grafik Interaktif")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        x_axis = st.selectbox("Pilih Sumbu X", data.columns)
+
+    with col2:
+        y_axis = st.selectbox("Pilih Sumbu Y", data.columns, index=1)
+
+    # Scatter plot
+    fig2, ax2 = plt.subplots()
+    ax2.scatter(data[x_axis], data[y_axis])
+    ax2.set_xlabel(x_axis)
+    ax2.set_ylabel(y_axis)
+
+    st.pyplot(fig2)
+
+    # Line chart
+    st.subheader("Line Chart")
+    st.line_chart(data[[x_axis, y_axis]])
+
+# ======================================
+# TAB 4 — DISTRIBUSI (HISTOGRAM + HEATMAP)
+# ======================================
+with tab4:
+
+    st.subheader("Histogram Total Skor")
+
+    fig3, ax3 = plt.subplots()
+    ax3.hist(data["Total_Skor"], bins=10)
+    ax3.set_xlabel("Total Skor")
+    ax3.set_ylabel("Frekuensi")
+
+    st.pyplot(fig3)
+
+    st.subheader("Heatmap Korelasi")
+
+    corr = data.corr()
+
+    fig4, ax4 = plt.subplots(figsize=(10,8))
+    sns.heatmap(corr, cmap="coolwarm", ax=ax4)
+
+    st.pyplot(fig4)
+
+# ======================================
+# FOOTER
+# ======================================
+st.markdown("---")
+st.caption("Dashboard Mini • Diagram • Grafik • Tabel")
