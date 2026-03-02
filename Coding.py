@@ -6,9 +6,9 @@ import seaborn as sns
 from sklearn.linear_model import LinearRegression
 
 # =====================================================
-# KONFIGURASI
+# KONFIGURASI HALAMAN
 # =====================================================
-st.set_page_config(page_title="Dashboard Analisis Penelitian", layout="wide")
+st.set_page_config(page_title="Dashboard Analisis Lengkap", layout="wide")
 
 st.title("📊 Dashboard Analisis Data Penelitian")
 
@@ -34,14 +34,11 @@ data = data.select_dtypes(include=np.number)
 data["Total_Skor"] = data.sum(axis=1)
 
 # =====================================================
-# SIDEBAR REGRESI
+# SIDEBAR (REGRESI)
 # =====================================================
 st.sidebar.header("⚙️ Pengaturan Analisis")
 
-target = st.sidebar.selectbox(
-    "Variabel Target (Y)",
-    data.columns
-)
+target = st.sidebar.selectbox("Variabel Target (Y)", data.columns)
 
 opsi_fitur = [c for c in data.columns if c != target]
 default_fitur = opsi_fitur[:min(3, len(opsi_fitur))]
@@ -53,52 +50,119 @@ fitur = st.sidebar.multiselect(
 )
 
 # =====================================================
-# TAB
+# TAB DASHBOARD
 # =====================================================
-tab1, tab2, tab3, tab4 = st.tabs([
-    "📋 Statistik",
-    "🔥 Korelasi",
-    "📈 Regresi",
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "📋 Tabel",
+    "📊 Statistik",
+    "📈 Grafik",
+    "📉 Distribusi",
+    "🥧 Diagram Lingkaran",
+    "🔥 Korelasi & Regresi",
     "🧠 Kesimpulan"
 ])
 
 # =====================================================
-# TAB 1 — STATISTIK
+# TAB 1 — TABEL
 # =====================================================
 with tab1:
-
-    st.subheader("Statistik Deskriptif")
-    st.dataframe(data.describe(), use_container_width=True)
-
-    fig1, ax1 = plt.subplots()
-    ax1.hist(data["Total_Skor"], bins=10)
-    ax1.set_title("Distribusi Total Skor")
-
-    st.pyplot(fig1)
+    st.subheader("Tabel Data")
+    st.dataframe(data, use_container_width=True)
 
 # =====================================================
-# TAB 2 — KORELASI
+# TAB 2 — STATISTIK
 # =====================================================
 with tab2:
+    st.subheader("Statistik Deskriptif")
+    stats = data.describe()
+    st.dataframe(stats, use_container_width=True)
 
-    st.subheader("Matriks Korelasi")
+    mean_values = data.mean()
 
-    corr = data.corr()
+    fig, ax = plt.subplots(figsize=(12,5))
+    ax.bar(mean_values.index, mean_values.values)
+    ax.set_title("Rata-rata Variabel")
+    ax.tick_params(axis='x', rotation=90)
+    st.pyplot(fig)
 
-    fig2, ax2 = plt.subplots(figsize=(10,8))
-    sns.heatmap(corr, cmap="coolwarm", ax=ax2)
+# =====================================================
+# TAB 3 — GRAFIK
+# =====================================================
+with tab3:
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        x_axis = st.selectbox("Sumbu X", data.columns)
+
+    with col2:
+        y_axis = st.selectbox("Sumbu Y", data.columns, index=1)
+
+    fig2, ax2 = plt.subplots()
+    ax2.scatter(data[x_axis], data[y_axis])
+    ax2.set_xlabel(x_axis)
+    ax2.set_ylabel(y_axis)
 
     st.pyplot(fig2)
 
-    # korelasi rata-rata
+    st.line_chart(data[[x_axis, y_axis]])
+
+# =====================================================
+# TAB 4 — DISTRIBUSI
+# =====================================================
+with tab4:
+    st.subheader("Distribusi Total Skor")
+
+    fig3, ax3 = plt.subplots()
+    ax3.hist(data["Total_Skor"], bins=10)
+    ax3.set_xlabel("Total Skor")
+    ax3.set_ylabel("Frekuensi")
+
+    st.pyplot(fig3)
+
+# =====================================================
+# TAB 5 — DIAGRAM LINGKARAN
+# =====================================================
+with tab5:
+
+    st.subheader("Diagram Lingkaran Kategori Skor")
+
+    kategori = pd.cut(
+        data["Total_Skor"],
+        bins=3,
+        labels=["Rendah", "Sedang", "Tinggi"]
+    )
+
+    kategori_count = kategori.value_counts()
+
+    fig4, ax4 = plt.subplots()
+    ax4.pie(
+        kategori_count,
+        labels=kategori_count.index,
+        autopct='%1.1f%%',
+        startangle=90
+    )
+
+    st.pyplot(fig4)
+
+# =====================================================
+# TAB 6 — KORELASI & REGRESI
+# =====================================================
+with tab6:
+
+    st.subheader("Heatmap Korelasi")
+
+    corr = data.corr()
+
+    fig5, ax5 = plt.subplots(figsize=(10,8))
+    sns.heatmap(corr, cmap="coolwarm", ax=ax5)
+    st.pyplot(fig5)
+
     mean_corr = corr.abs().mean().mean()
+    st.info(f"Rata-rata kekuatan korelasi: {round(mean_corr,3)}")
 
-    st.info(f"Rata-rata kekuatan korelasi = {round(mean_corr,3)}")
-
-# =====================================================
-# TAB 3 — REGRESI
-# =====================================================
-with tab3:
+    # REGRESI
+    st.subheader("Regresi Linear")
 
     if len(fitur) > 0:
 
@@ -115,45 +179,37 @@ with tab3:
             "Koefisien": model.coef_
         })
 
-        st.subheader("Koefisien Regresi")
         st.dataframe(coef_df, use_container_width=True)
 
-        intercept = model.intercept_
         r2 = model.score(X, y)
-
-        st.write("Intercept:", round(intercept,4))
         st.success(f"R² Score = {round(r2,4)}")
 
-        # grafik prediksi
-        fig3, ax3 = plt.subplots()
-        ax3.scatter(y, prediksi)
-        ax3.set_xlabel("Aktual")
-        ax3.set_ylabel("Prediksi")
-        ax3.set_title("Aktual vs Prediksi")
+        fig6, ax6 = plt.subplots()
+        ax6.scatter(y, prediksi)
+        ax6.set_xlabel("Aktual")
+        ax6.set_ylabel("Prediksi")
 
-        st.pyplot(fig3)
+        st.pyplot(fig6)
 
     else:
-        st.warning("Pilih minimal satu variabel prediktor.")
+        st.warning("Pilih variabel prediktor.")
 
 # =====================================================
-# TAB 4 — KESIMPULAN OTOMATIS
+# TAB 7 — KESIMPULAN OTOMATIS
 # =====================================================
-with tab4:
+with tab7:
 
-    st.subheader("Kesimpulan Analisis Otomatis")
+    st.subheader("Kesimpulan Analisis")
 
-    # Statistik
     mean_total = data["Total_Skor"].mean()
 
     if mean_total < data["Total_Skor"].quantile(0.33):
-        kategori = "rendah"
+        kategori_text = "rendah"
     elif mean_total < data["Total_Skor"].quantile(0.66):
-        kategori = "sedang"
+        kategori_text = "sedang"
     else:
-        kategori = "tinggi"
+        kategori_text = "tinggi"
 
-    # Korelasi interpretasi
     if mean_corr < 0.3:
         korelasi_text = "lemah"
     elif mean_corr < 0.6:
@@ -161,7 +217,6 @@ with tab4:
     else:
         korelasi_text = "kuat"
 
-    # Regresi interpretasi
     if len(fitur) > 0:
         if r2 < 0.3:
             regresi_text = "rendah"
@@ -173,20 +228,16 @@ with tab4:
         regresi_text = "belum dianalisis"
 
     kesimpulan = f"""
-    Berdasarkan hasil analisis data:
+    • Rata-rata kemampuan siswa berada pada kategori **{kategori_text}**.  
+    • Hubungan antar variabel menunjukkan korelasi **{korelasi_text}**.  
+    • Model regresi memiliki kemampuan prediksi **{regresi_text}**.  
 
-    1. Rata-rata total skor siswa berada pada kategori **{kategori}**.
-    2. Hubungan antar variabel menunjukkan tingkat korelasi **{korelasi_text}**.
-    3. Model regresi memiliki kemampuan prediksi **{regresi_text}** dengan nilai R² sebesar {round(r2,3) if len(fitur)>0 else "-"}.
-    
-    Secara umum, data menunjukkan adanya hubungan antar variabel yang dapat digunakan
-    untuk menjelaskan variasi pada variabel target penelitian.
+    Secara umum data menunjukkan adanya hubungan antar variabel yang dapat
+    digunakan untuk menjelaskan variasi pada variabel target penelitian.
     """
 
     st.success(kesimpulan)
 
 # =====================================================
-# FOOTER
-# =====================================================
 st.markdown("---")
-st.caption("Dashboard Analisis Penelitian Otomatis")
+st.caption("Dashboard Analisis Lengkap • Statistik • Korelasi • Regresi")
